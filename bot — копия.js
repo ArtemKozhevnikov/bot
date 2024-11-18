@@ -1,8 +1,8 @@
 const TelegramBot = require('node-telegram-bot-api');
 const mysql = require('mysql2/promise');
 
-const axios = require('axios');
-const SCREENSHOT_API_KEY = 'c3727ba40735665a32e236e46d92d6b6';
+const ScreenshotApi = require('screenshotapi'); // Убедитесь, что пакет установлен
+const API_KEY = 'c3727ba40735665a32e236e46d92d6b6'; // Укажите ваш ключ API
 
 const token = '7484499923:AAGFDFeq2uk8L7jrYQ-f4gqnWI7tFfPUCQI';
 
@@ -178,8 +178,6 @@ bot.onText(/^\!qr/, function(msg) {
 });
 
 // Команда "!webscr" для скриншота сайта
-// Попробовал вставить код из вспомогалетльной ссылки, но этот api уже не работает. Домен продаётся)
-// Поэтому нашёл другой api и реализовал ниже
 //bot.onText(/^\!webscr/, function(msg) {
 //	console.log(msg);
 //	var userId = msg.from.id;
@@ -189,34 +187,64 @@ bot.onText(/^\!qr/, function(msg) {
 //});
 
 // Команда "!webscr" для скриншота сайта
-bot.onText(/^\!webscr (.+)/, async (msg, match) => {
+/*bot.onText(/^\!webscr (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
-    const url = match[1].trim(); // Extract URL from the command
+    const url = match[1].trim(); // Извлечение URL из сообщения
 
-    // Validate URL
+    // Проверка на корректность URL
     if (!/^https?:\/\//i.test(url)) {
-        bot.sendMessage(chatId, 'Ошибка: Укажите корректный URL с протоколом http или https.');
+        bot.sendMessage(chatId, 'Ошибка: Пожалуйста, укажите действительный URL с протоколом http или https.');
         return;
     }
 
+    const captureRequest = {
+        url: url,
+        webdriver: 'firefox',   // Используется Firefox для рендера
+        viewport: '1280x1024', // Разрешение экрана
+        fullpage: false,       // Скриншот только видимой части страницы
+        javascript: true       // Включение JavaScript
+    };
+
     try {
-        const apiUrl = `http://api.screenshotlayer.com/api/capture?access_key=${SCREENSHOT_API_KEY}&url=${encodeURIComponent(url)}&viewport=1280x1024&fullpage=1&format=PNG`;
+        // Получение скриншота через API
+        const localFile = await ScreenshotApi.getScreenshot(
+            API_KEY,        // Ваш API-ключ
+            captureRequest, // Настройки скриншота
+            './'            // Локальный путь для сохранения
+        );
 
-        const response = await axios.get(apiUrl, { responseType: 'arraybuffer' });
-
-        if (response.status === 200) {
-        
-            const buffer = Buffer.from(response.data, 'binary');
-            await bot.sendPhoto(chatId, buffer, { caption: `Скриншот сайта: ${url}` });
-        } else {
-            bot.sendMessage(chatId, `Ошибка при создании скриншота. Код ошибки: ${response.status}`);
-        }
+        // Отправка изображения пользователю
+        await bot.sendPhoto(chatId, localFile, { caption: `Скриншот сайта: ${url}` });
     } catch (err) {
-        console.error('Error capturing screenshot:', err.message);
-        bot.sendMessage(chatId, 'Ошибка: Не удалось получить скриншот. Попробуйте позже.');
+        console.error('Error capturing screenshot:', err);
+        bot.sendMessage(chatId, 'Ошибка при создании скриншота. Проверьте URL или повторите попытку позже.');
     }
-});
+});*/
 
+// Команда "!webscr" для скриншота сайта
+bot.onText(/^\!webscr (.+)/, async (msg, match) => {
+	var ScreenshotApi = require('screenshotapi'); // npm install screenshotapi --save
+            
+            var captureRequest = {
+              url: 'http://www.amazon.com',
+              webdriver: 'firefox',
+              viewport: '1280x1024',
+              fullpage: false,
+              javascript: true
+            };
+            
+            ScreenshotApi.getScreenshot(
+              API_KEY,        // your api key
+              captureRequest, // the site to capture and your settings
+              './'            // local path to store the screenshot png
+              )
+              .then( (localFile) => {
+                console.log(`Downloaded to ${localFile}`);
+              })
+              .catch( (err) => {
+                console.error('Error capturing screenshot:', err);
+              });
+});
 // Лог сообщений в консоль
 bot.on('message', (msg) => {
     console.log(`Received message: ${msg.text} from ${msg.chat.username || 'unknown user'}`);

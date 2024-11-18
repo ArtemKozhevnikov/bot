@@ -1,1 +1,1 @@
-https://github.com/ArtemKozhevnikov/bot/tree/bot_commands
+https://github.com/ArtemKozhevnikov/bot/tree/bot_commands_2

@@ -10,8 +10,12 @@
   "author": "Kozhevnikov Artem",
   "license": "ISC",
   "dependencies": {
+    "axios": "^1.7.7",
     "mysql2": "^3.11.4",
     "node-telegram-bot-api": "^0.66.0",
-    "nodemon": "^3.1.7"
+    "nodemon": "^3.1.7",
+    "puppeteer": "^23.8.0",
+    "qrcode": "^1.5.4",
+    "screenshotapi": "^1.1.2"
   }
 }
