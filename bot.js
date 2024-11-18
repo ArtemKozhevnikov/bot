@@ -8,6 +8,26 @@ const token = '7484499923:AAGFDFeq2uk8L7jrYQ-f4gqnWI7tFfPUCQI';
 
 const bot = new TelegramBot(token, { polling: true });
 
+
+// Функция для выбора случайного элемента из БД
+async function getRandomItemMessage(dbConfig) {
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        const [rows] = await connection.query('SELECT * FROM Items ORDER BY RAND() LIMIT 1');
+        connection.end();
+
+        if (rows.length > 0) {
+            const item = rows[0];
+            return `ID: ${item.id};  Name: ${item.name};  Desc: ${item.desc}`;
+        } else {
+            return 'Нет доступных элементов.';
+        }
+    } catch (err) {
+        console.error(`Ошибка при получении randomItem: ${err.message}`);
+        return 'Ошибка при получении элемента.';
+    }
+}
+
 // Настройки подключения к базе данных
 const dbConfig = {
     host: 'localhost',
@@ -53,20 +73,12 @@ bot.onText(/\/creator/, (msg) => {
 // Команда /randomItem
 bot.onText(/\/randomItem/, async (msg) => {
     const chatId = msg.chat.id;
-    try {
-        const connection = await mysql.createConnection(dbConfig);
-        const [rows] = await connection.query('SELECT * FROM Items ORDER BY RAND() LIMIT 1');
-        connection.end();
 
-        if (rows.length > 0) {
-            const item = rows[0];
-            bot.sendMessage(chatId, `ID: ${item.id};  Name: ${item.name};  Desc: ${item.desc}`);
-        } else {
-            bot.sendMessage(chatId, 'Нет доступных элементов.');
-        }
-    } catch (err) {
-        bot.sendMessage(chatId, `Ошибка: ${err.message}`);
-    }
+    // Получить сообщение с случайным элементом
+    const message = await getRandomItemMessage(dbConfig);
+
+    // Отправить сообщение пользователю
+    bot.sendMessage(chatId, message);
 });
 
 // Команда /deleteItem
@@ -216,6 +228,65 @@ bot.onText(/^\!webscr (.+)/, async (msg, match) => {
         bot.sendMessage(chatId, 'Ошибка: Не удалось получить скриншот. Попробуйте позже.');
     }
 });
+
+// Обновление или добавление записи в таблицу "Users" с последней датой сообщения
+bot.on('message', async (msg) => {
+    const userId = msg.from.id;
+    const today = new Date().toISOString().split('T')[0];
+
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+
+        await connection.query(
+            `INSERT INTO Users (ID, lastMessage) VALUES (?, ?)
+             ON DUPLICATE KEY UPDATE lastMessage = VALUES(lastMessage)`,
+            [userId, today]
+        );
+
+        connection.end();
+        console.log(`Обновлена запись для пользователя ${userId}`);
+    } catch (err) {
+        console.error(`Ошибка обновления записи: ${err.message}`);
+    }
+
+    console.log(`Received message: ${msg.text} from ${msg.chat.username || 'unknown user'}`);
+});
+
+const { setIntervalAsync } = require('set-interval-async/dynamic');
+
+// Проверка каждый день (13:00 МСК)
+setIntervalAsync(async () => {
+    const now = new Date();
+    const moscowOffset = 3 * 60 * 60 * 1000; // Смещение на 3 часа относительно UTC
+    const moscowTime = new Date(now.getTime() + moscowOffset);
+
+    if (moscowTime.getHours() === 13 && moscowTime.getMinutes() === 0) {
+        try {
+            const connection = await mysql.createConnection(dbConfig);
+
+            const twoDaysAgo = new Date();
+            twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+            const twoDaysAgoString = twoDaysAgo.toISOString().split('T')[0];
+
+            const [rows] = await connection.query(
+                'SELECT ID FROM Users WHERE lastMessage < ?',
+                [twoDaysAgoString]
+            );
+
+            connection.end();
+
+            for (const user of rows) {
+                const chatId = user.ID;
+
+                const message = await getRandomItemMessage(dbConfig);
+
+                await bot.sendMessage(chatId, `Вы не писали более 2 дней. Вот ваш случайный элемент:\n${message}`);
+            }
+        } catch (err) {
+            console.error(`Ошибка проверки пользователей: ${err.message}`);
+        }
+    }
+}, 60000);
 
 // Лог сообщений в консоль
 bot.on('message', (msg) => {
